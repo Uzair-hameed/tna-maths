@@ -109,7 +109,6 @@
     </div>
 
     <div class="test-sections">
-      <!-- Section A: MCQs -->
       <div class="test-card" style="grid-column: 1 / -1;">
         <h3>Section A: Objective Content & Pedagogical Knowledge (10 marks)</h3>
         <div class="sub-score-grid" style="grid-template-columns: repeat(5, 1fr);">
@@ -127,7 +126,6 @@
         <div class="test-subtotal">Section A Total: <span id="test-partA">0</span> / 10</div>
       </div>
 
-      <!-- Section B: Short Answers -->
       <div class="test-card">
         <h3>Section B: Short Answer (10 marks)</h3>
         <div class="sub-score-grid" style="grid-template-columns: repeat(5, 1fr);">
@@ -140,7 +138,6 @@
         <div class="test-subtotal">Section B Total: <span id="test-partB">0</span> / 10</div>
       </div>
 
-      <!-- Section C: PCK Scenarios -->
       <div class="test-card">
         <h3>Section C: PCK Scenarios (20 marks)</h3>
         <div class="sub-score-grid" style="grid-template-columns: repeat(5, 1fr);">
@@ -167,7 +164,7 @@
     </div>
   </section>
 
-  <!-- TNA SELF-ASSESSMENT -->
+  <!-- TNA -->
   <section id="tab-tna" class="tab-content">
     <h2>TNA Self-Assessment — Mathematics</h2>
     <p class="hint">Enter the average of each section from the Google Form (scale 1–5).</p>
@@ -286,6 +283,7 @@
       </label>
       <button id="btn-generate-report" class="btn btn-primary">📄 Generate Report</button>
       <button id="btn-download-pdf" class="btn btn-primary">🖨️ Download PDF</button>
+      <button id="btn-download-docx" class="btn btn-primary">📥 Download Word (.docx)</button>
     </div>
 
     <div id="report-preview" class="report-preview">
@@ -323,8 +321,12 @@
 
 </main>
 
+<!-- Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
+<!-- App scripts -->
 <script src="js/storage.js"></script>
 <script src="js/observation.js"></script>
 <script src="js/test.js"></script>
