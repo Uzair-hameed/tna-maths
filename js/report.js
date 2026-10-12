@@ -1,6 +1,7 @@
 /* ============================================================
    REPORT.JS — Mathematics Version
-   Records table, individual reports, group reports, PDF export
+   Records table, individual reports, group reports,
+   PDF export, Word (.docx) export with charts
    ============================================================ */
 
 /* ============ RECORDS TABLE ============ */
@@ -330,7 +331,6 @@ function buildIndividualReport(t) {
     `;
   }
 
-  // Domain table
   const domainRows = TNA_DOMAINS.map(d => {
     const v = scores[d.key];
     const p = priorityFromScore(v);
@@ -342,7 +342,6 @@ function buildIndividualReport(t) {
     </tr>`;
   }).join('');
 
-  // Observation domain breakdown
   let obsBreakdown = '';
   if (obs && obs.domainScores) {
     const rows = OBSERVATION_DOMAINS.map(d => {
@@ -367,7 +366,6 @@ function buildIndividualReport(t) {
       </table>`;
   }
 
-  // Test section breakdown
   let testBreakdown = '';
   if (test) {
     testBreakdown = `<h2>Teacher Test Breakdown</h2>
@@ -422,7 +420,6 @@ function buildIndividualReport(t) {
     </table>
 
     ${obsBreakdown}
-
     ${testBreakdown}
 
     <h2>Domain-Level Analysis (1–4 scale)</h2>
@@ -432,9 +429,7 @@ function buildIndividualReport(t) {
     </table>
 
     ${reflSection}
-
     ${generatePartB(t)}
-
     ${generatePartC(t)}
 
     <p style="margin-top:30px; color:#6b7280; font-size:12px; text-align:center;">
@@ -604,4 +599,231 @@ function populateReportTeacherDropdown() {
   const teachers = getAllTeachers();
   sel.innerHTML = '<option value="">-- Select Teacher --</option>' +
     teachers.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+}
+
+/* ============================================================
+   WORD (.docx) EXPORT — Complete report with tables + charts
+   ============================================================ */
+
+async function downloadReportDOCX() {
+  if (!lastReportHTML) {
+    alert('Generate a report first.');
+    return;
+  }
+
+  if (typeof window.docx === 'undefined') {
+    alert('Word library not loaded. Please refresh the page (Ctrl+Shift+R).');
+    return;
+  }
+
+  const btn = document.getElementById('btn-download-docx');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '⏳ Generating...'; btn.disabled = true; }
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+            WidthType, BorderStyle, AlignmentType, HeadingLevel, ImageRun,
+            ShadingType } = window.docx;
+
+    const type = document.getElementById('report-type').value;
+    const children = [];
+
+    // ============ TITLE ============
+    const reportTitle = type === 'individual'
+      ? 'Individual Teacher Report — Mathematics'
+      : 'Group Summary Report — Mathematics';
+
+    children.push(new Paragraph({
+      children: [new TextRun({ text: reportTitle, bold: true, size: 36, color: '1e40af' })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 300 }
+    }));
+
+    children.push(new Paragraph({
+      children: [new TextRun({ text: 'Generated on ' + new Date().toLocaleDateString('en-GB'), size: 20, italics: true, color: '6b7280' })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 }
+    }));
+
+    // ============ PARSE THE HTML REPORT ============
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(lastReportHTML, 'text/html');
+
+    const elements = doc.body.children;
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      const tag = el.tagName.toLowerCase();
+
+      if (tag === 'h1') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: el.textContent, bold: true, size: 32, color: '1e40af' })],
+          spacing: { before: 300, after: 200 },
+          border: { bottom: { color: '1e40af', size: 12, style: BorderStyle.SINGLE, space: 6 } }
+        }));
+      }
+      else if (tag === 'h2') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: el.textContent, bold: true, size: 26, color: '1e40af' })],
+          spacing: { before: 300, after: 150 }
+        }));
+      }
+      else if (tag === 'h3') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: el.textContent, bold: true, size: 22, color: '374151' })],
+          spacing: { before: 200, after: 100 }
+        }));
+      }
+      else if (tag === 'p') {
+        const txt = el.textContent.trim();
+        if (txt) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: txt, size: 22 })],
+            spacing: { after: 150 }
+          }));
+        }
+      }
+      else if (tag === 'ul' || tag === 'ol') {
+        const items = el.querySelectorAll('li');
+        items.forEach((li, idx) => {
+          const prefix = tag === 'ol' ? (idx + 1) + '. ' : '• ';
+          children.push(new Paragraph({
+            children: [new TextRun({ text: prefix + li.textContent.trim(), size: 22 })],
+            spacing: { after: 80 },
+            indent: { left: 400 }
+          }));
+        });
+      }
+      else if (tag === 'table') {
+        const rows = el.querySelectorAll('tr');
+        const tableRows = [];
+
+        rows.forEach((tr, rowIdx) => {
+          const cells = tr.querySelectorAll('th, td');
+          const tableCells = [];
+
+          cells.forEach(cell => {
+            const isHeader = cell.tagName.toLowerCase() === 'th' || rowIdx === 0;
+            const cellText = cell.textContent.trim();
+
+            tableCells.push(new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: cellText,
+                  bold: isHeader,
+                  size: 20,
+                  color: isHeader ? 'FFFFFF' : '1f2937'
+                })],
+                spacing: { before: 60, after: 60 }
+              })],
+              shading: isHeader ? {
+                type: ShadingType.CLEAR,
+                fill: '1e40af'
+              } : (rowIdx % 2 === 0 ? {
+                type: ShadingType.CLEAR,
+                fill: 'f9fafb'
+              } : undefined),
+              width: { size: 100 / cells.length, type: WidthType.PERCENTAGE }
+            }));
+          });
+
+          tableRows.push(new TableRow({ children: tableCells }));
+        });
+
+        children.push(new Table({
+          rows: tableRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: 'd1d5db' },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: 'd1d5db' },
+            left: { style: BorderStyle.SINGLE, size: 4, color: 'd1d5db' },
+            right: { style: BorderStyle.SINGLE, size: 4, color: 'd1d5db' },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: 'e5e7eb' },
+            insideVertical: { style: BorderStyle.SINGLE, size: 2, color: 'e5e7eb' }
+          }
+        }));
+
+        children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
+      }
+    }
+
+    // ============ CAPTURE CHARTS AS IMAGES ============
+    children.push(new Paragraph({
+      children: [new TextRun({ text: 'Charts & Visualizations', bold: true, size: 28, color: '1e40af' })],
+      spacing: { before: 400, after: 200 },
+      pageBreakBefore: true
+    }));
+
+    const chartIds = ['chart-gaps', 'chart-radar', 'chart-pie', 'chart-teachers'];
+    const chartTitles = {
+      'chart-gaps': 'Domain Gaps (Training Needs)',
+      'chart-radar': 'Three-Source Comparison',
+      'chart-pie': 'Priority Distribution',
+      'chart-teachers': 'Per-Teacher Observation %'
+    };
+
+    for (const chartId of chartIds) {
+      const canvas = document.getElementById(chartId);
+      if (!canvas || canvas.width === 0) continue;
+
+      try {
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const base64 = dataUrl.split(',')[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        children.push(new Paragraph({
+          children: [new TextRun({ text: chartTitles[chartId], bold: true, size: 22, color: '374151' })],
+          spacing: { before: 300, after: 150 }
+        }));
+
+        children.push(new Paragraph({
+          children: [new ImageRun({
+            data: bytes,
+            transformation: { width: 600, height: 340 }
+          })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 300 }
+        }));
+      } catch (e) {
+        console.warn('Chart capture failed for', chartId, e);
+      }
+    }
+
+    // ============ BUILD & DOWNLOAD ============
+    const docFile = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+          }
+        },
+        children: children
+      }]
+    });
+
+    const blob = await Packer.toBlob(docFile);
+    const teacherName = type === 'individual'
+      ? (document.getElementById('report-teacher').selectedOptions[0].textContent || 'Report')
+      : 'Group_Summary';
+    const filename = teacherName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().toISOString().slice(0,10) + '.docx';
+    downloadBlob(blob, filename);
+
+  } catch (err) {
+    console.error('DOCX generation failed:', err);
+    alert('❌ Failed to generate Word file: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
